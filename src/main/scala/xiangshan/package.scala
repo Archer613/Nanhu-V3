@@ -28,7 +28,7 @@ package object xiangshan {
     def vec: UInt = "b011".U
     def default: UInt = "b100".U
     def DC: UInt = imm // Don't Care
-    def X: BitPat = BitPat("b??")
+    def X: BitPat = BitPat("b???")
     def isReg(srcType: UInt): Bool = srcType === reg
     def isPc(srcType: UInt): Bool = srcType === pc
     def isImm(srcType: UInt): Bool = srcType === imm
