@@ -10,7 +10,7 @@
 	url = https://github.com/Siudya/ready-to-run
 [submodule "huancun"]
 	path = huancun
-	url = https://github.com/Siudya/Huancun
+	url = https://github.com/Archer613/HuanCun
 [submodule "fudian"]
 	path = fudian
 	url = https://github.com/Siudya/fudian
