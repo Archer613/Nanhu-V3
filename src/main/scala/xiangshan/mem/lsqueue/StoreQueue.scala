@@ -281,7 +281,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   require(io.storeIn.length == 2)
   val storeExceptionInfo = Wire(Vec(2, new LSQExceptionInfo))
   storeExceptionInfo.zipWithIndex.foreach({case (d,i) =>
-    val validCond = io.storeIn(i).valid && !io.storeIn(i).bits.uop.robIdx.needFlush(io.brqRedirect)
+    val validCond = io.storeIn(i).valid && !io.storeIn(i).bits.miss && !io.storeIn(i).bits.uop.robIdx.needFlush(io.brqRedirect)
     d.robIdx := RegEnable(io.storeIn(i).bits.uop.robIdx, validCond)
     d.vaddr := RegEnable(io.storeIn(i).bits.vaddr, validCond)
     d.eVec := io.storeInRe(i).uop.cf.exceptionVec
