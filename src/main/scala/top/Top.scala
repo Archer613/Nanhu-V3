@@ -73,8 +73,8 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
   //   })))
   // )
   val l3cacheOpt = soc.L3CacheParamsOpt.map(l3param =>
-    LazyModule(new CoupledL3()(new Config((_, _, _) => {
-      case L3ParamKey => l3param
+    LazyModule(new HuanCun("XSTop_L3_")(new Config((_, _, _) => {
+      case HCCacheParamsKey => l3param.copy(enableTopDown = debugOpts.EnableTopDown)
     })))
   )
 

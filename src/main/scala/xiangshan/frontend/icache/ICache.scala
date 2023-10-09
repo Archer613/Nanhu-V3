@@ -179,10 +179,10 @@ class ICacheMetaArray(parentName:String = "Unknown")(implicit p: Parameters) ext
   val write1 = io.write.bits
 
   when(write_bank_0) {
-    v(0)(write1.virIdx(highestIdxBit,1))(UIntToOH(write1.waymask)) := true.B
+    v(0)(write1.virIdx(highestIdxBit,1))(OHToUInt(write1.waymask)) := true.B
   }.otherwise {
     when (write_bank_1) {
-      v(1)(write1.virIdx(highestIdxBit,1))(UIntToOH(write1.waymask)) := true.B
+      v(1)(write1.virIdx(highestIdxBit,1))(OHToUInt(write1.waymask)) := true.B
     }
   }
 
@@ -262,23 +262,24 @@ class ICacheMetaArray(parentName:String = "Unknown")(implicit p: Parameters) ext
   val wayNum   = OHToUInt(io.write.bits.waymask)
   val validPtr = Cat(io.write.bits.virIdx, wayNum)
 
-  io.readResp.metaData <> DontCare
-  io.readResp.v <> DontCare
-  when(port_0_read_0_reg){
-    io.readResp.metaData(0) := read_metas(0)
-    (0 until nWays).map{i => io.readResp.v(0)(i) := v(0)(io.read.bits.vSetIdx(0)(highestIdxBit,1))(i)}
-  }.elsewhen(port_0_read_1_reg){
-    io.readResp.metaData(0) := read_metas(1)
-    (0 until nWays).map{i => io.readResp.v(0)(i) := v(1)(io.read.bits.vSetIdx(0)(highestIdxBit,1))(i)}
-  }
+ io.readResp.metaData <> DontCare
+io.readResp.v <> DontCare
+val vSetIdx_reg =  RegEnable(io.read.bits.vSetIdx,io.read.valid)
+ when(port_0_read_0_reg){
+  io.readResp.metaData(0) := read_metas(0)
+(0 until nWays).map{i => io.readResp.v(0)(i) := v(0)(vSetIdx_reg(0)(highestIdxBit,1))(i)}
+ }.elsewhen(port_0_read_1_reg){
+  io.readResp.metaData(0) := read_metas(1)
+(0 until nWays).map{i => io.readResp.v(0)(i) := v(1)(vSetIdx_reg(0)(highestIdxBit,1))(i)}
+ }
 
-  when(port_1_read_0_reg){
-    io.readResp.metaData(1) := read_metas(0)
-    (0 until nWays).map{i => io.readResp.v(1)(i) := v(0)(io.read.bits.vSetIdx(1)(highestIdxBit,1))(i)}
-  }.elsewhen(port_1_read_1_reg){
-    io.readResp.metaData(1) := read_metas(1)
-    (0 until nWays).map{i => io.readResp.v(1)(i) := v(1)(io.read.bits.vSetIdx(1)(highestIdxBit,1))(i)}
-  }
+ when(port_1_read_0_reg){
+  io.readResp.metaData(1) := read_metas(0)
+(0 until nWays).map{i => io.readResp.v(1)(i) := v(0)(vSetIdx_reg(1)(highestIdxBit,1))(i)}
+ }.elsewhen(port_1_read_1_reg){
+  io.readResp.metaData(1) := read_metas(1)
+(0 until nWays).map{i => io.readResp.v(1)(i) := v(1)(vSetIdx_reg(1)(highestIdxBit,1))(i)}
+ }
 
 
   io.write.ready := true.B

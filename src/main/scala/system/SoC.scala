@@ -41,7 +41,7 @@ case class SoCParameters
   PAddrBits: Int = 36,
   extIntrs: Int = 64,
   L3NBanks: Int = 4,
-  L3CacheParamsOpt: Option[L3Param] = Some(L3Param(
+  L3CacheParamsOpt: Option[HCCacheParameters] = Some(HCCacheParameters(
     name = "l3",
     ways = 8,
     sets = 2048 // 1MB per bank

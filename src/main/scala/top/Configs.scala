@@ -288,23 +288,34 @@ class WithNKBL3(n: Int, ways: Int = 8, inclusive: Boolean = true, banks: Int = 1
     }.sum
     up(SoCParamsKey).copy(
       L3NBanks = banks,
-      L3CacheParamsOpt = Some(L3Param(
+      L3CacheParamsOpt = Some(HCCacheParameters(
         name = "L3",
+        level = 3,
         ways = ways,
         sets = sets,
-        inclusionPolicy = "NINE",
+        inclusive = inclusive,
         clientCaches = tiles.map{ core =>
           val l2params = core.L2CacheParamsOpt.get.toCacheParams
-          l2params.copy(
-            sets = l2params.sets,
-            ways = (l2params.ways + 1) * core_num,
-            blockGranularity = log2Ceil(clientDirBytes / core.L2NBanks / l2params.ways / 64 / tiles.size)
-          )
+          l2params.copy(sets = 2 * clientDirBytes / core.L2NBanks / l2params.ways / 64, ways = l2params.ways + 2)
+//          l2params.copy(
+//            sets = l2params.sets,
+//            ways = (l2params.ways + 1) * core_num,
+//            blockGranularity = log2Ceil(clientDirBytes / core.L2NBanks / l2params.ways / 64 / tiles.size)
+//          )
         },
-        enablePerf = false
+        enablePerf = true,
+        ctrl = None,
+        reqField = Seq(utility.ReqSourceField()),
+        sramClkDivBy2 = true,
+        sramDepthDiv = 4,
+        tagECC = Some("secded"),
+        dataECC = Some("secded"),
+        simulation = !site(DebugOptionsKey).FPGAPlatform,
+        hasMbist = false
       ))
     )
 })
+
 
 class WithL3DebugConfig extends Config(
   new WithNKBL3(256, inclusive = false) ++ new WithNKBL2(64)
@@ -327,7 +338,7 @@ class MediumConfig(n: Int = 1) extends Config(
 
 class DefaultConfig(n: Int = 1) extends Config(
   new WithNKBL3(4 * 1024, inclusive = false, banks = 4, ways = 16, core_num = n)
-    ++ new WithNKBL2(256, inclusive = false, banks = 2, ways = 4, alwaysReleaseData = true)
+    ++ new WithNKBL2(256, inclusive = false, banks = 2, ways = 8, alwaysReleaseData = true)
     ++ new WithNKBL1D(64)
     ++ new BaseConfig(n)
 )
