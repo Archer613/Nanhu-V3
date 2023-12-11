@@ -200,3 +200,6 @@ verdi:
 
 .PHONY: verilog sim-verilog emu clean help init bump bsp $(REF_SO)
 
+test-top-fullsys:
+	mill -i XiangShan.test.runMain cachetest.TestTop_fullSys_1Core -td build | tee ./build/build.log
+	mv build/TestTop_fullSys_1Core.v build/TestTop.v
