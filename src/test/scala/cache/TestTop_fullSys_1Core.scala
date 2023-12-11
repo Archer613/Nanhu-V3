@@ -50,55 +50,53 @@ class TestTop_fullSys_1Core()(implicit p: Parameters) extends LazyModule {
   var master_nodes: Seq[TLClientNode] = Seq() // TODO
   
   // val nullNode = LazyModule(new SppSenderNull)
-  val l2List = (0 until nrL2).map{i =>
-    val l1d = createClientNode(s"l1d$i", 32)
-    val l1i = TLClientNode(Seq(
-      TLMasterPortParameters.v1(
-        clients = Seq(TLMasterParameters.v1(
-          name = s"l1i$i",
-          sourceId = IdRange(0, 32)
-        ))
-      )
-    ))
-    master_nodes = master_nodes ++ Seq(l1d, l1i) // TODO
+  val l1d = createClientNode(s"l1d", 32)
+  val l1i = TLClientNode(Seq(
+    TLMasterPortParameters.v1(
+      clients = Seq(TLMasterParameters.v1(
+        name = s"l1i",
+        sourceId = IdRange(0, 32)
+      ))
+    )
+  ))
+  master_nodes = master_nodes ++ Seq(l1d, l1i) // TODO
 
-    val l1xbar = TLXbar()
-    val l2node = LazyModule(new CoupledL2()(new Config((_, _, _) => {
-      case L2ParamKey => L2Param(
-        name = s"l2$i",
-        ways = 8,
-        sets = 256,
-        clientCaches = Seq(L1Param(aliasBitsOpt = Some(2))),
-        echoField = Seq(huancun.DirtyField()),
-        // prefetch = Some(BOPParameters(rrTableEntries = 16,rrTagBits = 6))
-        prefetch = None,
-        /* del L2 prefetche recv option, move into: prefetch =  PrefetchReceiverParams
-        prefetch options:
-          SPPParameters          => spp only
-          BOPParameters          => bop only
-          PrefetchReceiverParams => sms+bop
-          HyperPrefetchParams    => spp+bop+sms
-        */
-        sppMultiLevelRefill = None,
-        /*must has spp, otherwise Assert Fail
-        sppMultiLevelRefill options:
-        PrefetchReceiverParams() => spp has cross level refill
-        None                     => spp only refill L2 
-        */
-      )
-      case DebugOptionsKey => DebugOptions()
-    })))
-    l1xbar := TLBuffer() := l1i
-    l1xbar := TLBuffer() := l1d
-    // l2node.pf_recv_node match{
-    //   case Some(l2Recv) => 
-    //     val l1_sms_send_0_node = LazyModule(new PrefetchSmsOuterNode)
-    //     l2Recv := l1_sms_send_0_node.outNode
-    //   case None =>
-    // }
-    l2xbar := TLBuffer() := l2node.node := l1xbar
-    l2node // return l2 list
-  }
+  val l1xbar = TLXbar()
+  val l2node = LazyModule(new CoupledL2()(new Config((_, _, _) => {
+    case L2ParamKey => L2Param(
+      name = s"l2",
+      ways = 8,
+      sets = 256,
+      clientCaches = Seq(L1Param(aliasBitsOpt = Some(2))),
+      echoField = Seq(huancun.DirtyField()),
+      // prefetch = Some(BOPParameters(rrTableEntries = 16,rrTagBits = 6))
+      prefetch = None,
+      /* del L2 prefetche recv option, move into: prefetch =  PrefetchReceiverParams
+      prefetch options:
+        SPPParameters          => spp only
+        BOPParameters          => bop only
+        PrefetchReceiverParams => sms+bop
+        HyperPrefetchParams    => spp+bop+sms
+      */
+      sppMultiLevelRefill = None,
+      /*must has spp, otherwise Assert Fail
+      sppMultiLevelRefill options:
+      PrefetchReceiverParams() => spp has cross level refill
+      None                     => spp only refill L2 
+      */
+    )
+    case DebugOptionsKey => DebugOptions()
+  })))
+  l1xbar := TLBuffer() := l1i
+  l1xbar := TLBuffer() := l1d
+  // l2node.pf_recv_node match{
+  //   case Some(l2Recv) => 
+  //     val l1_sms_send_0_node = LazyModule(new PrefetchSmsOuterNode)
+  //     l2Recv := l1_sms_send_0_node.outNode
+  //   case None =>
+  // }
+  l2xbar := TLBuffer() := l2node.node := l1xbar
+
 
   val l3 = LazyModule(new HuanCun()(new Config((_, _, _) => {
     case HCCacheParamsKey => HCCacheParameters(
@@ -159,10 +157,9 @@ class TestTop_fullSys_1Core()(implicit p: Parameters) extends LazyModule {
   l3.ctlnode.foreach(_ := TLBuffer() := ctrl_node)
   l3.intnode.foreach(l3_ecc_int_sink := _)
 
-  val l2_ecc_int_sinks = Seq.fill(nrL2)(IntSinkNode(IntSinkPortSimple(1, 1)))
-  l2List.map(_.intNode).zip(l2_ecc_int_sinks).foreach{ 
-    case(source, sink) => sink := source
-  }
+  val l2_ecc_int_sink = IntSinkNode(IntSinkPortSimple(1, 1))
+  l2_ecc_int_sink := l2node.intNode
+
 
   ram.node :=
     TLXbar() :=*
@@ -179,18 +176,16 @@ class TestTop_fullSys_1Core()(implicit p: Parameters) extends LazyModule {
     // l3FrontendAXI4Node.makeIOs()(ValName("dma_port"))
     ctrl_node.makeIOs()(ValName("cmo_port"))
     l3_ecc_int_sink.makeIOs()(ValName("l3_int_port"))
-
-    l2_ecc_int_sinks.zipWithIndex.foreach{ case(sink, i) => sink.makeIOs()(ValName("l2_int_port_"+i))}
-
+    l2_ecc_int_sink.makeIOs()(ValName("l2_int_port"))
 
     val io = IO(new Bundle{
       val perfClean = Input(Bool())
       val perfDump = Input(Bool())
     })
 
-    l2List.foreach(_.module.io.dfx_reset.scan_mode := false.B)
-    l2List.foreach(_.module.io.dfx_reset.lgc_rst_n := true.B.asAsyncReset)
-    l2List.foreach(_.module.io.dfx_reset.mode := false.B)
+    l2node.module.io.dfx_reset.scan_mode := false.B
+    l2node.module.io.dfx_reset.lgc_rst_n := true.B.asAsyncReset
+    l2node.module.io.dfx_reset.mode := false.B
     
     val logTimestamp = WireInit(0.U(64.W))
     val perfClean = WireInit(false.B)
@@ -203,7 +198,7 @@ class TestTop_fullSys_1Core()(implicit p: Parameters) extends LazyModule {
 
     logTimestamp := timer
 
-    val perfEvents = (l2List.map(_.module)).flatMap(_.getPerfEvents)
+    val perfEvents = l2node.module.getPerfEvents
     generatePerfEvent()
   }
 }
@@ -215,7 +210,7 @@ object TestTop_fullSys_1Core extends App {
       clientCaches = Seq(L1Param(aliasBitsOpt = Some(2))),
       echoField = Seq(DirtyField()),
       // prefetch = Some(BOPParameters(rrTableEntries = 16,rrTagBits = 6))
-      prefetch = Some(HyperPrefetchParams()), /*
+      prefetch = None, /*
       del L2 prefetche recv option, move into: prefetch =  PrefetchReceiverParams
       prefetch options:
         SPPParameters          => spp only
@@ -223,7 +218,7 @@ object TestTop_fullSys_1Core extends App {
         PrefetchReceiverParams => sms+bop
         HyperPrefetchParams    => spp+bop+sms
       */
-      sppMultiLevelRefill = Some(coupledL2.prefetch.PrefetchReceiverParams()),
+      sppMultiLevelRefill = None,
       /*must has spp, otherwise Assert Fail
       sppMultiLevelRefill options:
       PrefetchReceiverParams() => spp has cross level refill
