@@ -1,5 +1,8 @@
 package cachetest
 
+import system.SoCParameters
+import system.SoCParamsKey
+import xiangshan._
 import coupledL2._
 import circt.stage.{ChiselStage, FirtoolOption}
 import chisel3._
@@ -12,9 +15,12 @@ import freechips.rocketchip.interrupts.{IntSinkNode, IntSinkPortSimple}
 import freechips.rocketchip.interrupts.{IntSourceNode, IntSourcePortSimple}
 import coupledL2.prefetch._
 import coupledL2.utils.HasPerfEvents
-import huancun.{HuanCun, HCCacheParameters, HCCacheParamsKey, CacheParameters, CacheCtrl}
+import huancun.{CacheCtrl, CacheParameters, HCCacheParameters, HCCacheParamsKey, HuanCun}
+import top.BusPerfMonitor
+import xiangshan.cache.DCacheWrapper
 import xs.utils.GTimer
-import xs.utils.perf.{DebugOptions,DebugOptionsKey}
+import xs.utils.perf.{DebugOptions, DebugOptionsKey}
+import xs.utils.tl.TLLogger
 
 
 class TestTop_fullSys_1Core()(implicit p: Parameters) extends LazyModule {
@@ -43,6 +49,19 @@ class TestTop_fullSys_1Core()(implicit p: Parameters) extends LazyModule {
     ))
     masterNode
   }
+
+  val dcache_ram = LazyModule(new TLRAM(AddressSet(0, 0xffffffffL), beatBytes = 32)) // Normal rtl-based memory
+  val l1_xbar = TLXbar()
+  val busPMU = BusPerfMonitor(enable = true)
+  val l1d_logger = TLLogger(s"L2_L1D_0")
+  val buffer = LazyModule(new TLBuffer)
+  val dcache = LazyModule(new DCacheWrapper(parentName = "dcache_"))
+  dcache_ram.node :=
+    TLXbar() :=*
+      TLFragmenter(32, 64) :=*
+      TLCacheCork() :=*
+      TLDelayer(delayFactor) :=*
+      l1_xbar :=* busPMU := l1d_logger := buffer.node := dcache.clientNode
 
   val l2xbar = TLXbar()
   val ram = LazyModule(new TLRAM(AddressSet(0, 0xffffffffL), beatBytes = 32)) // Normal rtl-based memory
@@ -173,6 +192,9 @@ class TestTop_fullSys_1Core()(implicit p: Parameters) extends LazyModule {
       case (node, i) =>
         node.makeIOs()(ValName(s"master_port_$i"))
     }
+
+    ctrl_node.makeIOs()
+
     // l3FrontendAXI4Node.makeIOs()(ValName("dma_port"))
     ctrl_node.makeIOs()(ValName("cmo_port"))
     l3_ecc_int_sink.makeIOs()(ValName("l3_int_port"))
@@ -182,6 +204,10 @@ class TestTop_fullSys_1Core()(implicit p: Parameters) extends LazyModule {
       val perfClean = Input(Bool())
       val perfDump = Input(Bool())
     })
+
+//    dcache.module.io.hartId := DontCare
+//    dcache.module.io.l2_pf_store_only := DontCare
+    dcache.module.io := DontCare
 
     l2node.module.io.dfx_reset.scan_mode := false.B
     l2node.module.io.dfx_reset.lgc_rst_n := true.B.asAsyncReset
@@ -229,6 +255,12 @@ object TestTop_fullSys_1Core extends App {
       echoField = Seq(DirtyField())
     )
     case DebugOptionsKey => DebugOptions()
+
+    case SoCParamsKey => SoCParameters(
+      hasShareBus = false, hasMbist = false
+    )
+
+    case XSCoreParamsKey => XSCoreParameters()
   })
   val top = DisableMonitors(p => LazyModule(new TestTop_fullSys_1Core()(p)))(config)
 
