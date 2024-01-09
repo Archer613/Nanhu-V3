@@ -208,7 +208,9 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter {
       if (l3cacheOpt.get.module.dfx_reset.isDefined) {
         l3cacheOpt.get.module.dfx_reset.get := dfx_reset
       }
-      io.debugL3 := l3cacheOpt.get.module.io.fpga_dbg
+      withClockAndReset(io.clock.asClock, reset_sync) {
+        io.debugL3 := RegNext(l3cacheOpt.get.module.io.fpga_dbg)
+      }
     }
 
     misc.module.debug_module_io.resetCtrl.hartIsInReset := core_with_l2.map(_.module.ireset.asBool)
