@@ -114,10 +114,7 @@ class MSHRStatus(implicit p: Parameters) extends DCacheBundle {
 
   val state = UInt(11.W)
 
-  val a_valid = Bool()
-  val a_ready = Bool()
-  val a_opcode = UInt(3.W)
-  val a_param = UInt(3.W)
+  val req_a_mes = UInt(8.W)
 }
 
 class MissEntry(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule with HasPerfLogging {
@@ -195,10 +192,12 @@ class MissEntry(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule wi
   io.miss_entry_status.state := Cat(s_acquire, s_grantack, s_replace_req, s_refill, s_mainpipe_req, s_write_storedata,
     w_grantfirst, w_grantlast, w_replace_resp, w_refill_resp, w_mainpipe_resp)
 
-  io.miss_entry_status.a_valid := io.mem_acquire.valid
-  io.miss_entry_status.a_ready := io.mem_acquire.ready
-  io.miss_entry_status.a_opcode := io.mem_acquire.bits.opcode
-  io.miss_entry_status.a_param := io.mem_acquire.bits.param
+  io.miss_entry_status.req_a_mes := Cat(
+    io.mem_acquire.bits.opcode,
+    io.mem_acquire.bits.param,
+    io.mem_acquire.ready,
+    io.mem_acquire.valid
+  )
 
   val release_entry = s_grantack && w_refill_resp && w_mainpipe_resp
 
