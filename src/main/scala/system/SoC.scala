@@ -43,8 +43,8 @@ case object SoCParamsKey extends Field[SoCParameters]
 case class SoCParameters
 (
   EnableILA: Boolean = false,
-  PAddrBits: Int = 37,
-  extIntrs: Int = 256,
+  PAddrBits: Int = 39,
+  extIntrs: Int = 352,
   L3NBanks: Int = 4,
   L3CacheParamsOpt: Option[HCCacheParameters] = Some(HCCacheParameters(
     name = "l3",
@@ -110,7 +110,7 @@ trait HaveSlaveAXI4Port {
   )))
   private val errorDevice = LazyModule(new TLError(
     params = DevNullParams(
-      address = Seq(AddressSet(0x0, 0xfffffffffL)),
+      address = Seq(AddressSet(0x0, 0x3FFFFFFFFL)),
       maxAtomic = 8,
       maxTransfer = 64),
     beatBytes = L3InnerBusWidth / 8
@@ -136,7 +136,7 @@ trait HaveAXI4MemPort {
   val device = new MemoryDevice
 
   val memAddrMask = (1L << PAddrBits) - 1L
-  val memRange = AddressSet(0x000000000L, memAddrMask).subtract(AddressSet(0x000000000L, 0xFFFFFFFFFL))
+  val memRange = AddressSet(0x000000000L, memAddrMask).subtract(AddressSet(0x000000000L, 0x3FFFFFFFFL))
   val memAXI4SlaveNode = AXI4SlaveNode(Seq(
     AXI4SlavePortParameters(
       slaves = Seq(
@@ -191,7 +191,7 @@ trait HaveAXI4PeripheralPort { this: BaseSoC =>
     supportsWrite = TransferSizes(1, 8),
     resources = uartDevice.reg
   )
-  val periAddrMask = 0xFFFFFFFFFL
+  val periAddrMask = 0x3FFFFFFFFL
   val peripheralRange = AddressSet(0x0000000000L, periAddrMask).subtract(onChipPeripheralRange).flatMap(x => x.subtract(uartRange))
   val peripheralNode = AXI4SlaveNode(Seq(AXI4SlavePortParameters(
     Seq(AXI4SlaveParameters(
